@@ -115,7 +115,7 @@
   document.head.appendChild(s2);
 
   // ---- state ----
-  let map, layer, cache={}, current={level:"country"};
+  let map, sharedRenderer, layer, cache={}, current={level:"country"};
 
   async function topo(name){
     if (cache[name]) return cache[name];
@@ -126,6 +126,10 @@
 
   async function init(){
     map = L.map(host, {preferCanvas:true, zoomControl:false, attributionControl:false}).setView([22.5,80],4);
+    // CRITICAL: one shared canvas renderer, reused across every layer (including any decorative overlays
+    // you may add later). Creating a new L.canvas() per layer stacks <canvas> elements in the overlay pane,
+    // and pointer events hit the topmost canvas first — swallowing clicks on layers below. See SKILL.md Phase 2.
+    sharedRenderer = L.canvas();
     await render("country");
     crumb.onclick = () => back();
   }
@@ -149,6 +153,7 @@
 
     if (layer) map.removeLayer(layer);
     layer = L.geoJSON(gj, {
+      renderer: sharedRenderer,
       style: f => {
         const keyProp = level==="district" ? "block_shape_id" : level==="state" ? "district_lgd" : "state_lgd";
         const row = byKey[f.properties[keyProp]];
@@ -209,3 +214,20 @@
   }
 })(frappe.create_shadow_element ? frappe.create_shadow_element(this) : this);
 </script>
+
+<!--
+  OPTIONAL — safe parent-outline overlay (e.g. faded parent state when drilling into districts).
+  Key rule: reuse `sharedRenderer`. Do NOT call L.canvas() again.
+
+  Example (paste inside render() after the main layer is added, at level === "state"):
+
+    if (current.level === "state" && current.parentFeature) {
+      L.geoJSON(current.parentFeature, {
+        renderer: sharedRenderer,              // ← shared, NOT L.canvas()
+        interactive: false,                    // decorative only
+        style: { color: "#9ca3af", weight: 1.5, dashArray: "4 3", fill: false }
+      }).addTo(map);
+    }
+
+  Verify in devtools: document.querySelectorAll('.leaflet-overlay-pane canvas').length must equal 1.
+-->

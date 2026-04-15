@@ -32,6 +32,7 @@ export default function IndiaDrillMap({
 }: IndiaDrillMapProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const rendererRef = useRef<L.Canvas | null>(null);
   const layerRef = useRef<L.GeoJSON | null>(null);
   const topoCache = useRef<Record<string, Topology>>({});
   const [ctx, setCtx] = useState<{ level: DrillLevel } & DrillContext>({ level: "country" });
@@ -41,6 +42,9 @@ export default function IndiaDrillMap({
     if (!hostRef.current || mapRef.current) return;
     mapRef.current = L.map(hostRef.current, { preferCanvas: true, zoomControl: false, attributionControl: false })
       .setView([22.5, 80], 4);
+    // One shared canvas renderer, reused across every layer. Never call L.canvas() per layer —
+    // stacked canvases in the overlay pane swallow pointer events on layers beneath. See REFERENCE.md §5.
+    rendererRef.current = L.canvas();
     return () => { mapRef.current?.remove(); mapRef.current = null; };
   }, []);
 
@@ -68,6 +72,7 @@ export default function IndiaDrillMap({
 
       if (layerRef.current) mapRef.current!.removeLayer(layerRef.current);
       layerRef.current = L.geoJSON(gj, {
+        renderer: rendererRef.current!,
         style: (f: any) => ({
           fillColor: colorFor(byKey[f.properties[keyProp]]?.metric ?? null, thr, scheme),
           fillOpacity: 0.85, color: "#fff", weight

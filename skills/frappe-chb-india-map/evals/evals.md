@@ -112,3 +112,19 @@ Markdown spec. Each case: **Prompt**, **Expected behavior**, **Rubric**. Score 0
 - [ ] Correct answer (raw SQL ≠ perm-enforced)
 - [ ] Shows the `frappe.get_all` alternative
 - [ ] Names the perf trade-off
+
+## E11 — Canvas renderer stacking (drill-down click swallowed)
+
+**Prompt:** "I extended the map to draw a dashed outline of the parent state when the user drills into districts, using `L.geoJSON(parent, {renderer: L.canvas(), interactive: false, style: {...}}).addTo(map)`. Now clicking on districts does nothing — but only after the first drill. What went wrong?"
+
+**Expected:** Agent names it as stacked canvas renderers. Each `L.canvas()` call is a factory that appends a new `<canvas>` to the overlay pane; the topmost canvas captures pointer events, its hit-test finds only `interactive: false` features, swallows the click, and the layer below never hears it. Fix: share one renderer — either omit the `renderer` option (Leaflet uses the map default from `preferCanvas: true`) or declare one `const sharedRenderer = L.canvas()` at map init and pass it to every layer including the decorative outline. Verify via `document.querySelectorAll(".leaflet-overlay-pane canvas").length === 1`.
+
+**Rubric:**
+- [ ] Names stacked canvas renderers as the cause
+- [ ] Explains Leaflet hit-test is per-canvas (not global)
+- [ ] Provides the shared-renderer fix with concrete code
+- [ ] Offers the canvas-count devtools check
+
+## Note on evaluation harness
+
+Every test case above that involves click / hover behaviour MUST be validated with a real pointer event (e.g. Puppeteer `page.mouse.click(x, y)` against a real pixel inside a polygon), not by calling the drill function programmatically. Programmatic shortcuts like `setSelection(...)` or directly invoking `drill(props)` bypass the click handler entirely and will mask canvas-stacking bugs, hit-testing regressions, shadow-DOM event-capture issues, and CSS `pointer-events: none` mistakes. A green eval run with programmatic shortcuts is not a green eval run.

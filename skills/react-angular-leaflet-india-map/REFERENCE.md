@@ -58,6 +58,7 @@ CSS tokens (Tailwind-class equivalents):
 | Numbers show `1,000,000` | `en-US` locale | `Intl.NumberFormat('en-IN')` |
 | Bundle 400 KB | `import * as topojson from 'topojson-client'` | `import { feature } from 'topojson-client'` |
 | Marker icons 404 | Default Leaflet icon URLs broken in bundlers | Not relevant — this map has no markers; ignore |
+| Clicks on districts/blocks silently ignored after adding a decorative parent outline | Multiple stacked canvas renderers — `L.canvas()` called per layer. The overlay canvas with `interactive: false` features captures the click; its hit-test returns nothing; the layer below never receives the event | Use one shared renderer. Either omit the `renderer` option on all layers (Leaflet uses the map's default from `preferCanvas: true`) or do `const sharedRenderer = L.canvas()` once at map init and pass `renderer: sharedRenderer` to every layer including decorative ones. Verify in devtools: `document.querySelectorAll('.leaflet-overlay-pane canvas').length` should equal 1 |
 
 ## 6. API contract
 

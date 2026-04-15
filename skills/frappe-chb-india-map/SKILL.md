@@ -44,6 +44,7 @@ Ask these one at a time via AskUserQuestion. Do not assume defaults.
 - **Preet Vihar caveat.** One Delhi block has null `district_lgd` — either hardcode override to East Delhi (`0174`) or filter out.
 - **en-IN formatting.** `Intl.NumberFormat('en-IN')` + ₹ Cr/L post-processing. Never `en-US`.
 - **Style field populated.** The CHB's Style field must have at least one rule or the block renders blank.
+- **One shared canvas renderer, never per-layer.** `preferCanvas: true` on the map instance gives you a single shared renderer — rely on it. **Never call `L.canvas()` as a factory per layer** (e.g. `L.geoJSON(..., {renderer: L.canvas()})`) — each call creates a new `<canvas>` DOM element stacked on top in the overlay pane, and pointer events hit the topmost canvas first. If a decorative overlay (e.g. faded parent-state outline while drilling) swallows clicks on the layer below, you've stacked renderers. The fix is either to pass no `renderer` option at all (so Leaflet reuses the map's default) or to hold exactly one `const sharedRenderer = L.canvas()` at map init and pass it explicitly to every layer. See REFERENCE.md §5 for the failure signature.
 
 ## Phase 3 — Files to touch
 

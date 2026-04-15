@@ -59,6 +59,7 @@ Per level, pick any subset. Every chosen key MUST appear in `map_metrics` respon
 | State changes but KPI card empty | `HOVER_FIELDS` keys missing from API response | Audit `map_metrics` return dict vs. `HOVER_FIELDS` config |
 | Map vanishes after Workspace save | CHB child-table sync dropped widget | Re-add via Edit → Custom HTML Block; confirm label match |
 | Developer mode off, edit not reflected | v16 cache | `bench clear-cache && bench clear-website-cache` + hard reload |
+| Clicks on districts/blocks do nothing after drill-down | Multiple canvas renderers stacked (someone called `L.canvas()` per layer, e.g. for a parent-state outline). Topmost canvas has `interactive: false` features; its hit-test swallows the click and the layer below never hears it | Use a single shared renderer: either rely solely on `preferCanvas: true` with no per-layer `renderer` option, OR hold one `const sharedRenderer = L.canvas()` at map init and pass it to every layer. Check: `document.querySelectorAll('.leaflet-overlay-pane canvas').length` — should be 1 |
 
 ## 6. API response shape (contract)
 

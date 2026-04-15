@@ -37,6 +37,7 @@ Drop-in component that renders a 3-level India choropleth (State → District �
 
 - **Leaflet needs `window`.** Under SSR, wrap in `dynamic(() => import(...), { ssr: false })` (Next) or an `isPlatformBrowser` guard (Angular).
 - **Canvas, not SVG.** `L.map(el, { preferCanvas: true })`. SVG crashes on the block layer.
+- **One shared canvas renderer, never per-layer.** `preferCanvas: true` gives you a single shared renderer — rely on it. **Never call `L.canvas()` per layer** (e.g. `L.geoJSON(..., { renderer: L.canvas() })`). Each call creates a new `<canvas>` element stacked in the overlay pane, and pointer events hit the topmost canvas first. If a decorative overlay (faded parent outline, context polygon, etc.) swallows clicks on the interactive layer beneath, you've stacked renderers. Fix: pass no `renderer` option (Leaflet reuses the map's default) or hold exactly one `const sharedRenderer = L.canvas()` at map init and pass it to every layer. See REFERENCE.md §5 for the failure signature.
 - **Leaflet CSS must be imported.** `import 'leaflet/dist/leaflet.css'` in the component (or global styles). Missing CSS → zero-size pane, map invisible.
 - **`topojson-client` is the decoder.** `feature(topo, topo.objects.states).features`. Don't try to manually decode arc arrays.
 - **Join on LGD, never name.**

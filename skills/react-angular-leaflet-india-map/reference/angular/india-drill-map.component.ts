@@ -51,6 +51,7 @@ export class IndiaDrillMapComponent implements AfterViewInit, OnDestroy {
   hovered = signal<{ props: any; row: MapRow } | null>(null);
 
   private map?: L.Map;
+  private renderer?: L.Canvas;
   private layer?: L.GeoJSON;
   private topoCache: Record<string, any> = {};
   private browser: boolean;
@@ -67,6 +68,9 @@ export class IndiaDrillMapComponent implements AfterViewInit, OnDestroy {
     if (!this.browser) return;
     this.map = L.map(this.hostRef.nativeElement, { preferCanvas: true, zoomControl: false, attributionControl: false })
       .setView([22.5, 80], 4);
+    // One shared canvas renderer — reuse for every layer. Never call L.canvas() per layer;
+    // stacked canvases in the overlay pane eat pointer events on layers beneath. See REFERENCE.md §5.
+    this.renderer = L.canvas();
     this.render();
   }
 
@@ -91,6 +95,7 @@ export class IndiaDrillMapComponent implements AfterViewInit, OnDestroy {
 
     if (this.layer) this.map!.removeLayer(this.layer);
     this.layer = L.geoJSON(gj, {
+      renderer: this.renderer,
       style: (f: any) => ({
         fillColor: colorFor(byKey[f.properties[keyProp]]?.metric ?? null, thr, this.scheme),
         fillOpacity: 0.85, color: "#fff", weight,
