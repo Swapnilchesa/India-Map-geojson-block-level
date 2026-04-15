@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  Runnable single-file demo of the drill-down map — no build step.
+  Open this file in a browser (or serve via `python -m http.server`) to verify
+  the wiring before integrating into React or Angular.
+  Uses the same logic as the framework components, inlined.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>India drill-down map — demo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html,body{margin:0;font:13px/1.4 Inter,system-ui;background:#f9fafb}
+    .wrap{position:relative;height:600px;margin:24px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;overflow:hidden}
+    #map{position:absolute;inset:0}
+    .crumb{position:absolute;top:12px;left:12px;z-index:500;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font:500 12px/1 Inter;color:#374151;cursor:pointer}
+    .kpi{position:absolute;top:12px;right:12px;z-index:500;width:260px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .kpi .lbl{font:600 11px/1 Inter;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+    .kpi .val{font:600 24px/1.1 Inter;color:#111827;font-variant-numeric:tabular-nums;margin-top:4px}
+    .kpi .row{display:flex;justify-content:space-between;margin-top:10px;color:#374151}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="map"></div>
+    <div id="crumb" class="crumb">India</div>
+    <div id="kpi" class="kpi" style="display:none"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+  <script>
+    const GEO = "https://cdn.jsdelivr.net/gh/Swapnilchesa/India-Map-geojson-block-level@main/data/topo";
+    const PAL = { Blues:["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"] };
+    const inEN = new Intl.NumberFormat("en-IN");
+    const fmtCr = v => v==null?"—":"₹"+(v/1e7).toFixed(2)+" Cr";
+
+    // Fake metrics — replace with a real fetch() to your API
+    function mockMetrics(level, keys){
+      return keys.map(k => ({ key:k, metric: Math.random()*1e9 }));
+    }
+
+    const map = L.map("map", {preferCanvas:true, zoomControl:false, attributionControl:false}).setView([22.5,80], 4);
+    let layer, cache={}, ctx={level:"country"};
+
+    async function topo(name){ cache[name] ||= await fetch(`${GEO}/${name}.json`).then(r=>r.json()); return cache[name]; }
+    function bins(vs){ const v=vs.filter(x=>x!=null).sort((a,b)=>a-b); return [.2,.4,.6,.8].map(p=>v[Math.floor(p*(v.length-1))]); }
+    function color(v, thr){ if(v==null) return "#f3f4f6"; for(let i=0;i<thr.length;i++) if(v<=thr[i]) return PAL.Blues[i]; return PAL.Blues[4]; }
+
+    async function render(){
+      const name = ctx.level==="country"?"states":ctx.level==="state"?"districts":"blocks";
+      const t = await topo(name);
+      let gj = topojson.feature(t, t.objects[name]);
+      if (ctx.level==="state")    gj.features = gj.features.filter(f=>f.properties.state_lgd===ctx.state_lgd);
+      if (ctx.level==="district") gj.features = gj.features.filter(f=>f.properties.state_lgd===ctx.state_lgd && f.properties.district_lgd===ctx.district_lgd);
+
+      const keyProp = ctx.level==="district"?"block_shape_id":ctx.level==="state"?"district_lgd":"state_lgd";
+      const rows = mockMetrics(ctx.level, gj.features.map(f=>f.properties[keyProp]));
+      const byKey = Object.fromEntries(rows.map(r=>[r.key,r]));
+      const thr = bins(rows.map(r=>r.metric));
+      const weight = ctx.level==="country"?1.5:ctx.level==="state"?0.8:0.3;
+
+      if (layer) map.removeLayer(layer);
+      layer = L.geoJSON(gj, {
+        style: f => ({fillColor:color(byKey[f.properties[keyProp]]?.metric, thr), fillOpacity:0.85, color:"#fff", weight}),
+        onEachFeature: (f, lyr) => {
+          lyr.on("mouseover", () => {
+            lyr.setStyle({color:"#111827",weight:2}); lyr.bringToFront();
+            const row = byKey[f.properties[keyProp]] || {};
+            const name = f.properties.block_name || f.properties.district_name || f.properties.state_name;
+            document.getElementById("kpi").style.display = "block";
+            document.getElementById("kpi").innerHTML =
+              `<div class="lbl">${ctx.level}</div><div class="val">${name}</div>
+               <div class="row"><span>Metric</span><b>${fmtCr(row.metric)}</b></div>`;
+          });
+          lyr.on("mouseout", () => layer.resetStyle(lyr));
+          lyr.on("click", () => drill(f.properties));
+        }
+      }).addTo(map);
+      map.fitBounds(layer.getBounds());
+      const c = document.getElementById("crumb");
+      c.textContent = ctx.level==="country" ? "India"
+        : ctx.level==="state" ? `India / ${ctx.state_name}`
+        : `India / ${ctx.state_name} / ${ctx.district_name}`;
+    }
+    function drill(p){
+      if (ctx.level==="country") ctx = {level:"state", state_lgd:p.state_lgd, state_name:p.state_name};
+      else if (ctx.level==="state") ctx = {level:"district", state_lgd:ctx.state_lgd, state_name:ctx.state_name, district_lgd:p.district_lgd, district_name:p.district_name};
+      render();
+    }
+    document.getElementById("crumb").onclick = () => {
+      if (ctx.level==="district") ctx = {level:"state", state_lgd:ctx.state_lgd, state_name:ctx.state_name};
+      else if (ctx.level==="state") ctx = {level:"country"};
+      render();
+    };
+    render();
+  </script>
+</body>
+</html>

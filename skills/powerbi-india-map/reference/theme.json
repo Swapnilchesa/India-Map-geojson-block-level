@@ -1,0 +1,23 @@
+{
+  "name": "India Map — Refined Utility",
+  "dataColors": ["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c","#fdbe85","#31a354"],
+  "background": "#ffffff",
+  "foreground": "#111827",
+  "foregroundNeutralSecondary": "#6b7280",
+  "tableAccent": "#6b7280",
+  "textClasses": {
+    "title":  { "fontSize": 18, "fontFamily": "Inter", "color": "#111827" },
+    "label":  { "fontSize": 11, "fontFamily": "Inter", "color": "#6b7280" },
+    "callout":{ "fontSize": 24, "fontFamily": "Inter", "color": "#111827" }
+  },
+  "visualStyles": {
+    "card": {
+      "*": {
+        "background": [{ "color": { "solid": { "color": "#ffffff" } }, "transparency": 0 }],
+        "border":     [{ "show": true, "color": { "solid": { "color": "#e5e7eb" } }, "radius": 6 }],
+        "dataLabels": [{ "fontSize": 24, "fontFamily": "Inter", "color": { "solid": { "color": "#111827" } } }],
+        "categoryLabels": [{ "fontSize": 11, "fontFamily": "Inter", "color": { "solid": { "color": "#6b7280" } } }]
+      }
+    }
+  }
+}

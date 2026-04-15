@@ -1,0 +1,44 @@
+// Core measures
+
+Sanctioned := SUM ( fact_grants[sanctioned_amount] )
+
+Disbursed := SUM ( fact_grants[disbursed_amount] )
+
+Grantees := DISTINCTCOUNT ( fact_grants[grantee] )
+
+Grants := COUNTROWS ( fact_grants )
+
+// Indian formatting helpers
+Sanctioned Cr :=
+VAR v = [Sanctioned]
+RETURN FORMAT ( v / 10000000, "#,##0.00\" Cr\"", "en-IN" )
+
+Disbursed Cr :=
+VAR v = [Disbursed]
+RETURN FORMAT ( v / 10000000, "#,##0.00\" Cr\"", "en-IN" )
+
+// Drill context for dynamic titles
+Drill Level :=
+SWITCH ( TRUE (),
+    ISFILTERED ( dim_block[block_shape_id] ), "Block",
+    ISFILTERED ( dim_district[district_lgd] ), "District",
+    ISFILTERED ( dim_state[state_lgd] ), "State",
+    "Country"
+)
+
+Map Title :=
+"Sanctioned — " & [Drill Level] & " view"
+
+// Aspirational flag at district grain
+Aspirational :=
+IF (
+    NOT ISBLANK ( RELATED ( dim_aspirational[district_lgd] ) ),
+    "Yes", "No"
+)
+
+// Guard: blank-out metric when no selection is present (prevents country-total bleed into tooltips)
+Sanctioned (Safe) :=
+IF ( ISFILTERED ( dim_state[state_lgd] ) || NOT ISFILTERED ( fact_grants[state_lgd] ),
+    [Sanctioned],
+    BLANK ()
+)

@@ -1,0 +1,45 @@
+<div class="wrap" [style.height.px]="height">
+  <div #host class="host"></div>
+
+  <button class="crumb" (click)="back()">
+    @if (ctx().level === 'country') { India }
+    @else if (ctx().level === 'state') { India / {{ ctx().state_name }} }
+    @else { India / {{ ctx().state_name }} / {{ ctx().district_name }} }
+  </button>
+
+  @if (hovered(); as h) {
+    <div class="kpi">
+      <div class="lbl">{{ ctx().level }}</div>
+      <div class="val">{{ h.props.block_name || h.props.district_name || h.props.state_name }}</div>
+      @for (f of hoverFields[ctx().level]; track f.key) {
+        @if (f.key === 'portfolios') {
+          <div class="row"><span class="lbl">{{ f.label }}</span></div>
+          <div class="chips">
+            @for (p of (h.row.portfolios || []).slice(0, 3); track p.name) {
+              <span class="chip">{{ p.name }}</span>
+            }
+            @if ((h.row.portfolios || []).length > 3) {
+              <span class="chip">+{{ (h.row.portfolios || []).length - 3 }}</span>
+            }
+          </div>
+        } @else {
+          <div class="row">
+            <span>{{ f.label }}</span>
+            <b class="tabular">{{ fmtByKey(f.key, (h.row | keyvalueAccess:f.key), metricFormat) }}</b>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  @if (ctx().level !== 'district') {
+    <div class="legend">
+      <div class="lbl">{{ metricLabel }}</div>
+      @for (c of PALETTES[scheme]; track $index) {
+        <div class="sw-row">
+          <span class="sw" [style.background]="c"></span>
+        </div>
+      }
+    </div>
+  }
+</div>

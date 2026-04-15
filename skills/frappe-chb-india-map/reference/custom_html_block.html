@@ -1,0 +1,211 @@
+<!--
+  Frappe Custom HTML Block — India drill-down map.
+  Placeholders to fill before paste:
+    __APP_NAME__       e.g. "mgrant"
+    __API_METHOD__     e.g. "mgrant.api.map_metrics"
+    __METRIC_LABEL__   e.g. "Sanctioned"
+    __METRIC_FORMAT__  "cr" | "lakh" | "enIN"
+    __SCHEME__         ColorBrewer key, e.g. "Blues"
+    __HOVER_FIELDS__   JSON, see REFERENCE.md §4
+    __GEO_BASE__       "/assets/__APP_NAME__/geo"  OR a jsDelivr URL
+-->
+<div class="map" style="height:520px;position:relative;"></div>
+<style>
+  .map{border-radius:6px;overflow:hidden;background:#fff}
+  .kpi{position:absolute;top:12px;right:12px;width:260px;background:#fff;border:1px solid #e5e7eb;
+       border-radius:6px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.06);font:13px/1.4 Inter,system-ui}
+  .kpi .lbl{font:600 11px/1 Inter;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+  .kpi .val{font:600 24px/1.1 Inter;color:#111827;font-variant-numeric:tabular-nums;margin-top:4px}
+  .kpi .row{display:flex;justify-content:space-between;margin-top:10px;color:#374151}
+  .kpi .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+  .kpi .chip{font:500 11px/1 Inter;background:#f3f4f6;color:#374151;padding:4px 8px;border-radius:999px}
+  .crumb{position:absolute;top:12px;left:12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+         padding:6px 10px;font:500 12px/1 Inter;color:#374151;cursor:pointer}
+  .legend{position:absolute;bottom:12px;left:12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+          padding:8px 10px;font:500 11px/1.2 Inter;color:#374151}
+  .legend .sw{display:inline-block;width:14px;height:10px;margin-right:4px;vertical-align:middle}
+  .asp{background:repeating-linear-gradient(45deg,rgba(239,68,68,.15) 0 4px,transparent 4px 8px) !important}
+</style>
+<script>
+(function(root){
+  // ---- config baked at paste time ----
+  const API   = "__API_METHOD__";
+  const LABEL = "__METRIC_LABEL__";
+  const FMT   = "__METRIC_FORMAT__";
+  const SCHEME= "__SCHEME__";
+  const HOVER = __HOVER_FIELDS__;  // {country:[], state:[], district:[]}
+  const GEO   = "__GEO_BASE__";
+
+  // ---- ColorBrewer 5-class palettes ----
+  const PAL = {
+    Blues:["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"],
+    Greens:["#edf8e9","#bae4b3","#74c476","#31a354","#006d2c"],
+    Greys:["#f7f7f7","#cccccc","#969696","#636363","#252525"],
+    Oranges:["#feedde","#fdbe85","#fd8d3c","#e6550d","#a63603"],
+    Purples:["#f2f0f7","#cbc9e2","#9e9ac8","#756bb1","#54278f"],
+    Reds:["#fee5d9","#fcae91","#fb6a4a","#de2d26","#a50f15"],
+    BuGn:["#edf8fb","#b2e2e2","#66c2a4","#2ca25f","#006d2c"],
+    BuPu:["#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"],
+    GnBu:["#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac"],
+    OrRd:["#fef0d9","#fdcc8a","#fc8d59","#e34a33","#b30000"],
+    PuBu:["#f1eef6","#bdc9e1","#74a9cf","#2b8cbe","#045a8d"],
+    PuBuGn:["#f6eff7","#bdc9e1","#67a9cf","#1c9099","#016c59"],
+    PuRd:["#f1eef6","#d7b5d8","#df65b0","#dd1c77","#980043"],
+    RdPu:["#feebe2","#fbb4b9","#f768a1","#c51b8a","#7a0177"],
+    YlGn:["#ffffcc","#c2e699","#78c679","#31a354","#006837"],
+    YlGnBu:["#ffffcc","#a1dab4","#41b6c4","#2c7fb8","#253494"],
+    YlOrBr:["#ffffd4","#fed98e","#fe9929","#d95f0e","#993404"],
+    YlOrRd:["#ffffb2","#fecc5c","#fd8d3c","#f03b20","#bd0026"],
+    BrBG:["#a6611a","#dfc27d","#f5f5f5","#80cdc1","#018571"],
+    PiYG:["#d01c8b","#f1b6da","#f7f7f7","#b8e186","#4dac26"],
+    PRGn:["#7b3294","#c2a5cf","#f7f7f7","#a6dba0","#008837"],
+    PuOr:["#e66101","#fdb863","#f7f7f7","#b2abd2","#5e3c99"],
+    RdBu:["#ca0020","#f4a582","#f7f7f7","#92c5de","#0571b0"],
+    RdGy:["#ca0020","#f4a582","#ffffff","#bababa","#404040"],
+    RdYlBu:["#d7191c","#fdae61","#ffffbf","#abd9e9","#2c7bb6"],
+    RdYlGn:["#d7191c","#fdae61","#ffffbf","#a6d96a","#1a9641"],
+    Spectral:["#d7191c","#fdae61","#ffffbf","#abdda4","#2b83ba"],
+    Set2:["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854"],
+    Set3:["#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3"],
+    Pastel1:["#fbb4ae","#b3cde3","#ccebc5","#decbe4","#fed9a6"]
+  };
+
+  // ---- number formatters ----
+  const inEN = new Intl.NumberFormat("en-IN");
+  function fmtMetric(v){
+    if (v == null) return "—";
+    if (FMT === "cr")   return "₹" + (v/1e7).toFixed(2) + " Cr";
+    if (FMT === "lakh") return "₹" + (v/1e5).toFixed(2) + " L";
+    return "₹" + inEN.format(Math.round(v));
+  }
+  function fmtDate(s){ if(!s) return "—"; const d=new Date(s); return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}); }
+  function fmtByKey(k,v){
+    if (k==="metric"||k==="disbursed") return fmtMetric(v);
+    if (k==="grantees"||k==="grants_count") return inEN.format(v||0);
+    if (k==="last_disbursed_on") return fmtDate(v);
+    if (k==="aspirational") return v ? "Yes" : "No";
+    return v==null?"—":String(v);
+  }
+
+  // ---- quantile binning ----
+  function bins(values){
+    const v=values.filter(x=>x!=null&&!isNaN(x)).sort((a,b)=>a-b);
+    if(!v.length) return [0,0,0,0];
+    return [.2,.4,.6,.8].map(p=>v[Math.floor(p*(v.length-1))]);
+  }
+  function colorFor(v, thr, scheme){
+    const pal = PAL[scheme] || PAL.Blues;
+    if (v==null || isNaN(v)) return "#f3f4f6";
+    for (let i=0;i<thr.length;i++) if (v<=thr[i]) return pal[i];
+    return pal[pal.length-1];
+  }
+
+  // ---- DOM refs ----
+  const host = root.querySelector(".map");
+  const kpi = document.createElement("div"); kpi.className="kpi"; host.appendChild(kpi);
+  const crumb = document.createElement("div"); crumb.className="crumb"; crumb.textContent="India"; host.appendChild(crumb);
+  const legend = document.createElement("div"); legend.className="legend"; host.appendChild(legend);
+
+  // ---- Leaflet + topojson-client ----
+  const s1 = document.createElement("link"); s1.rel="stylesheet"; s1.href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(s1);
+  const s2 = document.createElement("script"); s2.src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
+  const s3 = document.createElement("script"); s3.src="https://cdn.jsdelivr.net/npm/topojson-client@3";
+  s2.onload = () => document.head.appendChild(s3);
+  s3.onload = () => init();
+  document.head.appendChild(s2);
+
+  // ---- state ----
+  let map, layer, cache={}, current={level:"country"};
+
+  async function topo(name){
+    if (cache[name]) return cache[name];
+    const r = await fetch(`${GEO}/${name}.json`);
+    cache[name] = await r.json();
+    return cache[name];
+  }
+
+  async function init(){
+    map = L.map(host, {preferCanvas:true, zoomControl:false, attributionControl:false}).setView([22.5,80],4);
+    await render("country");
+    crumb.onclick = () => back();
+  }
+
+  async function render(level, ctx={}){
+    current = {level, ...ctx};
+    crumb.textContent = level==="country" ? "India" : level==="state" ? `India / ${ctx.state_name}` : `India / ${ctx.state_name} / ${ctx.district_name}`;
+
+    const [topoData, rows] = await Promise.all([
+      topo(level==="country" ? "states" : level==="state" ? "districts" : "blocks"),
+      frappe.call({method:API, args:{level, state_lgd:ctx.state_lgd, district_lgd:ctx.district_lgd}}).then(r=>r.message||[])
+    ]);
+    const objName = level==="country"?"states":level==="state"?"districts":"blocks";
+    let gj = topojson.feature(topoData, topoData.objects[objName]);
+    if (level==="state")    gj.features = gj.features.filter(f=>f.properties.state_lgd===ctx.state_lgd);
+    if (level==="district") gj.features = gj.features.filter(f=>f.properties.state_lgd===ctx.state_lgd && f.properties.district_lgd===ctx.district_lgd);
+
+    const byKey = Object.fromEntries(rows.map(r=>[r.key,r]));
+    const thr = bins(rows.map(r=>r.metric));
+    const scheme = SCHEME;
+
+    if (layer) map.removeLayer(layer);
+    layer = L.geoJSON(gj, {
+      style: f => {
+        const keyProp = level==="district" ? "block_shape_id" : level==="state" ? "district_lgd" : "state_lgd";
+        const row = byKey[f.properties[keyProp]];
+        const weight = level==="country"?1.5:level==="state"?0.8:0.3;
+        return {fillColor: colorFor(row?.metric, thr, scheme), fillOpacity:0.85, color:"#fff", weight};
+      },
+      onEachFeature: (f, lyr) => {
+        const keyProp = level==="district" ? "block_shape_id" : level==="state" ? "district_lgd" : "state_lgd";
+        const row = byKey[f.properties[keyProp]] || {};
+        if (row.aspirational) lyr._path && lyr._path.classList.add("asp");
+        lyr.on("mouseover", () => {
+          lyr.setStyle({color:"#111827",weight:2}); lyr.bringToFront();
+          showKpi(f.properties, row);
+        });
+        lyr.on("mouseout", () => { layer.resetStyle(lyr); });
+        lyr.on("click", () => drill(f.properties));
+      }
+    }).addTo(map);
+    map.fitBounds(layer.getBounds());
+    renderLegend(thr, scheme, level);
+  }
+
+  function showKpi(props, row){
+    const fields = HOVER[current.level] || [];
+    const name = props.block_name || props.district_name || props.state_name;
+    let html = `<div class="lbl">${current.level}</div><div class="val">${name}</div>`;
+    fields.forEach(f => {
+      if (f.key === "portfolios") {
+        const chips = (row.portfolios||[]).slice(0,3).map(p=>`<span class="chip">${p.name}</span>`).join("");
+        const more = (row.portfolios||[]).length > 3 ? `<span class="chip">+${row.portfolios.length-3}</span>` : "";
+        html += `<div class="row"><span class="lbl">${f.label}</span></div><div class="chips">${chips}${more}</div>`;
+      } else {
+        html += `<div class="row"><span>${f.label}</span><b>${fmtByKey(f.key,row[f.key])}</b></div>`;
+      }
+    });
+    kpi.innerHTML = html;
+  }
+
+  function renderLegend(thr, scheme, level){
+    if (level==="district") { legend.style.display="none"; return; }
+    legend.style.display="block";
+    const pal = PAL[scheme] || PAL.Blues;
+    legend.innerHTML = `<div class="lbl" style="margin-bottom:6px">${LABEL}</div>` +
+      pal.map((c,i)=>{
+        const lo = i===0 ? "≤" : "";
+        const hi = i<thr.length ? fmtMetric(thr[i]) : "+";
+        return `<div><span class="sw" style="background:${c}"></span>${lo}${hi}</div>`;
+      }).join("");
+  }
+
+  function drill(props){
+    if (current.level==="country") render("state",    {state_lgd:props.state_lgd, state_name:props.state_name});
+    else if (current.level==="state") render("district",{state_lgd:props.state_lgd, state_name:props.state_name, district_lgd:props.district_lgd, district_name:props.district_name});
+  }
+  function back(){
+    if (current.level==="district") render("state",    {state_lgd:current.state_lgd, state_name:current.state_name});
+    else if (current.level==="state") render("country");
+  }
+})(frappe.create_shadow_element ? frappe.create_shadow_element(this) : this);
+</script>

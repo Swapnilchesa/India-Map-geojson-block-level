@@ -1,0 +1,52 @@
+{
+  "name": "India drill map",
+  "_comment": "Paste into Icon Map Pro's 'Map layer JSON' field. Replace @main with @v1.0.0 once tagged.",
+  "mapProvider": "none",
+  "initialView": { "center": [80, 22.5], "zoom": 4 },
+  "layers": [
+    {
+      "id": "states",
+      "type": "choropleth",
+      "source": {
+        "type": "topojson",
+        "url": "https://cdn.jsdelivr.net/gh/Swapnilchesa/India-Map-geojson-block-level@main/data/topo/states.json",
+        "object": "states"
+      },
+      "joinField": "state_lgd",
+      "dataField": "state_lgd",
+      "colorPalette": { "scheme": "Blues", "classes": 5, "method": "quantile" },
+      "stroke": { "color": "#ffffff", "width": 1.5 },
+      "visibleAt": { "drillLevel": "Country" }
+    },
+    {
+      "id": "districts",
+      "type": "choropleth",
+      "source": {
+        "type": "topojson",
+        "url": "https://cdn.jsdelivr.net/gh/Swapnilchesa/India-Map-geojson-block-level@main/data/topo/districts.json",
+        "object": "districts"
+      },
+      "joinField": "district_lgd",
+      "dataField": "district_lgd",
+      "filter": { "state_lgd": "{{SELECTED_STATE_LGD}}" },
+      "colorPalette": { "scheme": "Blues", "classes": 5, "method": "quantile" },
+      "stroke": { "color": "#ffffff", "width": 0.8 },
+      "visibleAt": { "drillLevel": "State" }
+    },
+    {
+      "id": "blocks",
+      "type": "choropleth",
+      "source": {
+        "type": "topojson",
+        "url": "https://cdn.jsdelivr.net/gh/Swapnilchesa/India-Map-geojson-block-level@main/data/topo/blocks.json",
+        "object": "blocks"
+      },
+      "joinField": "block_shape_id",
+      "dataField": "block_shape_id",
+      "filter": { "state_lgd": "{{SELECTED_STATE_LGD}}", "district_lgd": "{{SELECTED_DISTRICT_LGD}}" },
+      "colorPalette": { "scheme": "Blues", "classes": 5, "method": "quantile" },
+      "stroke": { "color": "#ffffff", "width": 0.3 },
+      "visibleAt": { "drillLevel": "District" }
+    }
+  ]
+}
